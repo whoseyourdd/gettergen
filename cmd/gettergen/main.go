@@ -11,6 +11,7 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -198,7 +199,13 @@ func generate(typeNames []string, receivers map[string]receiverSpec, pointers bo
 				if ast.IsExported(name.Name) {
 					continue
 				}
-				getter := upperFirst(name.Name)
+				getter, include, err := getterName(name.Name, field.Tag)
+				if err != nil {
+					return generatedFile{}, fmt.Errorf("%s.%s: %w", typeName, name.Name, err)
+				}
+				if !include {
+					continue
+				}
 				fmt.Fprintf(&methods, "func (%s %s) %s() %s { return %s.%s }\n", receiver.name, receiverType, getter, fieldType.String(), receiver.name, name.Name)
 			}
 		}
@@ -231,9 +238,76 @@ func receiverName(value string) string {
 	return string(unicode.ToLower(r))
 }
 
-func upperFirst(value string) string {
-	r, size := utf8.DecodeRuneInString(value)
-	return string(unicode.ToUpper(r)) + value[size:]
+func getterName(fieldName string, tag *ast.BasicLit) (string, bool, error) {
+	if tag != nil {
+		raw, err := strconv.Unquote(tag.Value)
+		if err != nil {
+			return "", false, fmt.Errorf("invalid struct tag: %w", err)
+		}
+		if override, ok := reflect.StructTag(raw).Lookup("getter"); ok {
+			if override == "-" {
+				return "", false, nil
+			}
+			if !token.IsIdentifier(override) || token.Lookup(override).IsKeyword() || !ast.IsExported(override) {
+				return "", false, fmt.Errorf("invalid getter name %q", override)
+			}
+			return override, true, nil
+		}
+	}
+	return exportedFieldName(fieldName), true, nil
+}
+
+var initialisms = map[string]string{
+	"id": "ID", "uid": "UID", "api": "API", "ascii": "ASCII", "cpu": "CPU",
+	"css": "CSS", "dns": "DNS", "eof": "EOF", "guid": "GUID", "html": "HTML",
+	"http": "HTTP", "https": "HTTPS", "ip": "IP", "json": "JSON", "qps": "QPS",
+	"ram": "RAM", "rpc": "RPC", "sla": "SLA", "smtp": "SMTP", "sql": "SQL",
+	"ssh": "SSH", "tcp": "TCP", "tls": "TLS", "ttl": "TTL", "udp": "UDP",
+	"ui": "UI", "uri": "URI", "url": "URL", "utf8": "UTF8", "uuid": "UUID",
+	"vm": "VM", "xml": "XML", "xsrf": "XSRF", "xss": "XSS",
+}
+
+func exportedFieldName(value string) string {
+	words := splitWords(value)
+	var result strings.Builder
+	for _, word := range words {
+		if acronym, ok := initialisms[strings.ToLower(word)]; ok {
+			result.WriteString(acronym)
+		} else {
+			first, size := utf8.DecodeRuneInString(word)
+			result.WriteRune(unicode.ToUpper(first))
+			result.WriteString(word[size:])
+		}
+	}
+	return result.String()
+}
+
+func splitWords(value string) []string {
+	runes := []rune(value)
+	words := make([]string, 0, 4)
+	start := 0
+	for i, current := range runes {
+		if current == '_' {
+			if start < i {
+				words = append(words, string(runes[start:i]))
+			}
+			start = i + 1
+			continue
+		}
+		if i == start {
+			continue
+		}
+		previous := runes[i-1]
+		nextIsLower := i+1 < len(runes) && unicode.IsLower(runes[i+1])
+		if unicode.IsUpper(current) && (unicode.IsLower(previous) || unicode.IsDigit(previous) || (unicode.IsUpper(previous) && nextIsLower)) {
+			words = append(words, string(runes[start:i]))
+			start = i
+		}
+	}
+	if start < len(runes) {
+		words = append(words, string(runes[start:]))
+	}
+	return words
 }
 
 func fatalf(format string, args ...any) {

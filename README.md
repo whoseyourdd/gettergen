@@ -20,7 +20,19 @@ Run generation from the module or package:
 go generate ./...
 ```
 
-By default, gettergen scans all non-test Go files in the current package, generates getters for private named fields, uses value receivers, and writes `getters_gen.go`. The generated file is excluded from later scans.
+By default, gettergen scans all non-test Go files in the current package, generates getters for private named fields, uses value receivers, and writes `getters_gen.go`. The generated file is excluded from later scans. Field names use Go-style initialisms by default, so `id`, `uid`, and `companyId` become `ID()`, `UID()`, and `CompanyID()`.
+
+Use a `getter` struct tag to override a field's getter name or skip it:
+
+```go
+type PurchaseReturn struct {
+	id              string `getter:"ID"`
+	poRevision      uint64 `getter:"PORevision"`
+	lines           []Line `getter:"-"`
+}
+```
+
+An explicit getter name must be an exported Go identifier. `getter:"-"` omits the field. Fields without a `getter` tag use the default naming rules.
 
 ## Options
 
