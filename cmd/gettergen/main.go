@@ -22,6 +22,7 @@ import (
 func main() {
 	typeNames := flag.String("types", "", "optional comma-separated struct type filter (defaults to all structs)")
 	pointers := flag.Bool("pointers", false, "generate pointer receivers for all types by default")
+	pointerTypes := flag.String("pointer", "", "optional comma-separated types that use pointer receivers")
 	receivers := flag.String("receivers", "", "optional receiver overrides: Type=name or Type=*name")
 	output := flag.String("output", "getters_gen.go", "generated file path")
 	flag.Parse()
@@ -33,6 +34,12 @@ func main() {
 	var types []string
 	if strings.TrimSpace(*typeNames) != "" {
 		types = strings.Split(*typeNames, ",")
+	}
+	for _, typeName := range strings.Split(*pointerTypes, ",") {
+		typeName = strings.TrimSpace(typeName)
+		if typeName != "" {
+			receiverSpecs[typeName] = receiverSpec{name: receiverName(typeName), pointer: true, pointerSet: true}
+		}
 	}
 	generated, err := generate(types, receiverSpecs, *pointers, *output)
 	if err != nil {
@@ -207,6 +214,10 @@ func generate(typeNames []string, receivers map[string]receiverSpec, pointers bo
 					continue
 				}
 				value := getterValueExpression(receiver.name, name.Name, field.Type, fieldType.String())
+				if receiver.pointer && !isNilableType(field.Type) {
+					fmt.Fprintf(&methods, "func (%s %s) %s() %s { if %s == nil { var zero %s; return zero }; return %s }\n", receiver.name, receiverType, getter, fieldType.String(), receiver.name, fieldType.String(), value)
+					continue
+				}
 				fmt.Fprintf(&methods, "func (%s %s) %s() %s { return %s }\n", receiver.name, receiverType, getter, fieldType.String(), value)
 			}
 		}
@@ -271,6 +282,15 @@ func getterValueExpression(receiver, field string, fieldType ast.Expr, typeStrin
 		return fmt.Sprintf("append(%s(nil), %s...)", typeString, value)
 	}
 	return value
+}
+
+func isNilableType(fieldType ast.Expr) bool {
+	switch fieldType.(type) {
+	case *ast.StarExpr, *ast.ArrayType, *ast.MapType, *ast.ChanType, *ast.FuncType, *ast.InterfaceType:
+		return true
+	default:
+		return false
+	}
 }
 
 func isBoolType(fieldType ast.Expr) bool {

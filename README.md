@@ -2,6 +2,8 @@
 
 `gettergen` generates getter methods for private fields in Go structs.
 
+For instructions to share with AI coding agents in projects that use gettergen, see [Using gettergen with AI coding agents](docs/ai-agents.md).
+
 ## Install
 
 ```sh
@@ -51,5 +53,13 @@ Slice getters return a shallow copy of the slice. Struct values are returned by 
 ```
 
 An explicit pointer receiver can be selected with `-receivers=Quantity=*q`. Set `-output=filename.go` to choose a different output file.
+
+Use `-pointer` to select pointer receivers for specific structs while keeping value receivers for the rest:
+
+```sh
+//go:generate gettergen -pointer=StockCount
+```
+
+Multiple types can be comma-separated, for example `-pointer=StockCount,PurchaseReturn`. Pointer receiver getters return the field type's zero value when called on a nil receiver. `-pointer` takes precedence over a matching `-receivers` entry; use `-receivers=StockCount=*c` to customize the receiver name.
 
 Imports used by field types are copied from the source file that declares each struct, including explicit import aliases.

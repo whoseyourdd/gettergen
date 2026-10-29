@@ -70,6 +70,26 @@ func TestSliceGetterCopiesBackingArray(t *testing.T) {
 	}
 }
 
+func TestNilableTypes(t *testing.T) {
+	tests := []struct {
+		typ  ast.Expr
+		want bool
+	}{
+		{typ: &ast.StarExpr{X: &ast.Ident{Name: "string"}}, want: true},
+		{typ: &ast.ArrayType{Elt: &ast.Ident{Name: "string"}}, want: true},
+		{typ: &ast.MapType{Key: &ast.Ident{Name: "string"}, Value: &ast.Ident{Name: "int"}}, want: true},
+		{typ: &ast.ChanType{Value: &ast.Ident{Name: "int"}}, want: true},
+		{typ: &ast.FuncType{}, want: true},
+		{typ: &ast.InterfaceType{Methods: &ast.FieldList{}}, want: true},
+		{typ: &ast.Ident{Name: "string"}, want: false},
+	}
+	for _, test := range tests {
+		if got := isNilableType(test.typ); got != test.want {
+			t.Errorf("isNilableType(%T) = %v, want %v", test.typ, got, test.want)
+		}
+	}
+}
+
 func TestPointerFieldIsSkippedUnlessTagged(t *testing.T) {
 	if _, include, err := getterName("approval", &ast.StarExpr{X: &ast.Ident{Name: "Approval"}}, nil); err != nil || include {
 		t.Fatalf("untagged pointer field include = %v, err = %v; want false, nil", include, err)
