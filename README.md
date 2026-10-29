@@ -34,6 +34,8 @@ type PurchaseReturn struct {
 
 An explicit getter name must be an exported Go identifier. `getter:"-"` omits the field. Fields without a `getter` tag use the default naming rules.
 
+Boolean fields use `Is` getters by default: `deleted bool` generates `IsDeleted()`. If the field already starts with the `is` word, it is not repeated: `isDeleted bool` also generates `IsDeleted()`.
+
 ## Options
 
 ```sh

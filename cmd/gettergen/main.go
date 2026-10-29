@@ -199,7 +199,7 @@ func generate(typeNames []string, receivers map[string]receiverSpec, pointers bo
 				if ast.IsExported(name.Name) {
 					continue
 				}
-				getter, include, err := getterName(name.Name, field.Tag)
+				getter, include, err := getterName(name.Name, field.Type, field.Tag)
 				if err != nil {
 					return generatedFile{}, fmt.Errorf("%s.%s: %w", typeName, name.Name, err)
 				}
@@ -238,7 +238,7 @@ func receiverName(value string) string {
 	return string(unicode.ToLower(r))
 }
 
-func getterName(fieldName string, tag *ast.BasicLit) (string, bool, error) {
+func getterName(fieldName string, fieldType ast.Expr, tag *ast.BasicLit) (string, bool, error) {
 	if tag != nil {
 		raw, err := strconv.Unquote(tag.Value)
 		if err != nil {
@@ -254,7 +254,21 @@ func getterName(fieldName string, tag *ast.BasicLit) (string, bool, error) {
 			return override, true, nil
 		}
 	}
-	return exportedFieldName(fieldName), true, nil
+	getter := exportedFieldName(fieldName)
+	if isBoolType(fieldType) && !hasIsPrefix(fieldName) {
+		getter = "Is" + getter
+	}
+	return getter, true, nil
+}
+
+func isBoolType(fieldType ast.Expr) bool {
+	ident, ok := fieldType.(*ast.Ident)
+	return ok && ident.Name == "bool"
+}
+
+func hasIsPrefix(fieldName string) bool {
+	words := splitWords(fieldName)
+	return len(words) > 1 && strings.EqualFold(words[0], "is")
 }
 
 var initialisms = map[string]string{

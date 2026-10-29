@@ -41,12 +41,23 @@ func TestGetterNameTag(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			literal := &ast.BasicLit{Value: strconv.Quote(test.tag)}
-			got, include, err := getterName("id", literal)
+			got, include, err := getterName("id", &ast.Ident{Name: "string"}, literal)
 			if (err != nil) != test.wantErr {
 				t.Fatalf("getterName() error = %v, wantErr %v", err, test.wantErr)
 			}
 			if err == nil && (got != test.want || include != test.include) {
 				t.Fatalf("getterName() = (%q, %v), want (%q, %v)", got, include, test.want, test.include)
+			}
+		})
+	}
+}
+
+func TestBoolGetterNames(t *testing.T) {
+	for field, want := range map[string]string{"deleted": "IsDeleted", "isDeleted": "IsDeleted", "uid": "IsUID"} {
+		t.Run(field, func(t *testing.T) {
+			got, include, err := getterName(field, &ast.Ident{Name: "bool"}, nil)
+			if err != nil || !include || got != want {
+				t.Fatalf("getterName() = (%q, %v, %v), want (%q, true, nil)", got, include, err, want)
 			}
 		})
 	}
