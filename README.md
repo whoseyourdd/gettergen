@@ -36,6 +36,8 @@ An explicit getter name must be an exported Go identifier. `getter:"-"` omits th
 
 Boolean fields use `Is` getters by default: `deleted bool` generates `IsDeleted()`. If the field already starts with the `is` word, it is not repeated: `isDeleted bool` also generates `IsDeleted()`.
 
+Slice getters return a shallow copy of the slice. Struct values are returned by value. Pointer fields are skipped by default to avoid exposing mutable nested state; add an explicit `getter:"Name"` tag to opt in.
+
 ## Options
 
 ```sh

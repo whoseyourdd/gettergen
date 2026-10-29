@@ -62,3 +62,20 @@ func TestBoolGetterNames(t *testing.T) {
 		})
 	}
 }
+
+func TestSliceGetterCopiesBackingArray(t *testing.T) {
+	got := getterValueExpression("m", "ids", &ast.ArrayType{Elt: &ast.Ident{Name: "ID"}}, "[]ID")
+	if got != "append([]ID(nil), m.ids...)" {
+		t.Fatalf("getterValueExpression() = %q", got)
+	}
+}
+
+func TestPointerFieldIsSkippedUnlessTagged(t *testing.T) {
+	if _, include, err := getterName("approval", &ast.StarExpr{X: &ast.Ident{Name: "Approval"}}, nil); err != nil || include {
+		t.Fatalf("untagged pointer field include = %v, err = %v; want false, nil", include, err)
+	}
+	got, include, err := getterName("approval", &ast.StarExpr{X: &ast.Ident{Name: "Approval"}}, &ast.BasicLit{Value: strconv.Quote(`getter:"Approval"`)})
+	if err != nil || !include || got != "Approval" {
+		t.Fatalf("tagged pointer getter = (%q, %v, %v)", got, include, err)
+	}
+}

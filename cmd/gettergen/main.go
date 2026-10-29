@@ -206,7 +206,8 @@ func generate(typeNames []string, receivers map[string]receiverSpec, pointers bo
 				if !include {
 					continue
 				}
-				fmt.Fprintf(&methods, "func (%s %s) %s() %s { return %s.%s }\n", receiver.name, receiverType, getter, fieldType.String(), receiver.name, name.Name)
+				value := getterValueExpression(receiver.name, name.Name, field.Type, fieldType.String())
+				fmt.Fprintf(&methods, "func (%s %s) %s() %s { return %s }\n", receiver.name, receiverType, getter, fieldType.String(), value)
 			}
 		}
 	}
@@ -254,11 +255,22 @@ func getterName(fieldName string, fieldType ast.Expr, tag *ast.BasicLit) (string
 			return override, true, nil
 		}
 	}
+	if _, isPointer := fieldType.(*ast.StarExpr); isPointer {
+		return "", false, nil
+	}
 	getter := exportedFieldName(fieldName)
 	if isBoolType(fieldType) && !hasIsPrefix(fieldName) {
 		getter = "Is" + getter
 	}
 	return getter, true, nil
+}
+
+func getterValueExpression(receiver, field string, fieldType ast.Expr, typeString string) string {
+	value := receiver + "." + field
+	if slice, ok := fieldType.(*ast.ArrayType); ok && slice.Len == nil {
+		return fmt.Sprintf("append(%s(nil), %s...)", typeString, value)
+	}
+	return value
 }
 
 func isBoolType(fieldType ast.Expr) bool {
